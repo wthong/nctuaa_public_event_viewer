@@ -1,5 +1,5 @@
 {
-  "name": "[對外]交大台北校友會-活動彙整",
+  "name": "nctuaa-event",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,16 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
-    "react": "^19.2.3",
     "@google/genai": "^1.35.0",
-    "lucide-react": "^0.562.0",
-    "ical.js": "1.5.0"
+    "ical.js": "^1.5.0",
+    "lucide-react": "^0.474.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/ical.js": "^1.4.8",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.11"
   }
 }
