@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AdminPanel } from './components/AdminPanel';
-import { Button } from './components/Button';
-import { getEvents, isAdmin, syncEventsFromSheet } from './services/storageService';
-import { User, AlumniEvent } from './types';
-import { ROOT_ADMIN_EMAIL } from './constants';
-import { LogIn, GraduationCap, ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, ExternalLink, Calendar } from 'lucide-react';
+import { getEvents, syncEventsFromSheet } from './services/storageService';
+import { AlumniEvent } from './types';
+import { GraduationCap, ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'public' | 'admin'>('public');
   const [events, setEvents] = useState<AlumniEvent[]>([]);
-  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Login Modal State
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginError, setLoginError] = useState('');
 
   // Fetch and Sync events
   useEffect(() => {
@@ -31,10 +21,8 @@ const App: React.FC = () => {
       }
     };
 
-    if (view === 'public') {
-      init();
-    }
-  }, [view]);
+    init();
+  }, []);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -46,34 +34,6 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginEmail.endsWith('@gmail.com')) {
-      setLoginError('請使用有效的 Gmail 信箱。');
-      return;
-    }
-
-    if (isAdmin(loginEmail)) {
-      const newUser: User = {
-        email: loginEmail,
-        isAdmin: true,
-        isRoot: loginEmail === ROOT_ADMIN_EMAIL,
-      };
-      setUser(newUser);
-      setView('admin');
-      setShowLogin(false);
-      setLoginEmail('');
-      setLoginError('');
-    } else {
-      setLoginError('存取被拒。此 Email 不是授權的管理員。');
-    }
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setView('public');
   };
 
   // Helper to format date with weekday
@@ -94,36 +54,11 @@ const App: React.FC = () => {
       <nav className="bg-primary text-white shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center cursor-pointer" onClick={() => setView('public')}>
+            <div className="flex items-center">
                <div className="bg-white p-1.5 rounded-full mr-3 shadow-inner">
                  <GraduationCap className="h-6 w-6 text-primary" />
                </div>
                <span className="text-xl font-bold tracking-tight">交通大學台北校友會</span>
-            </div>
-            <div>
-              {user ? (
-                <div className="flex items-center gap-4">
-                  <span className="hidden md:inline text-sm text-gray-300">管理員: {user.email}</span>
-                  {view === 'public' && (
-                     <Button variant="secondary" onClick={() => setView('admin')} className="text-sm py-1">
-                       進入後台
-                     </Button>
-                  )}
-                  {view === 'admin' && (
-                     <Button variant="ghost" onClick={() => setView('public')} className="text-sm py-1 text-white hover:bg-white/10 hover:text-white">
-                       返回首頁
-                     </Button>
-                  )}
-                </div>
-              ) : (
-                <button 
-                  onClick={() => setShowLogin(true)}
-                  className="flex items-center text-gray-300 hover:text-white transition-colors"
-                >
-                  <LogIn className="w-5 h-5 mr-1" />
-                  <span className="hidden sm:inline">管理員登入</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -131,7 +66,6 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-grow">
-        {view === 'public' ? (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             
             {/* Hero Section */}
@@ -163,19 +97,19 @@ const App: React.FC = () => {
                 
                 {/* --- Desktop View: Table (Hidden on Mobile) --- */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-left">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[160px]">
+                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[160px]">
                           <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5"/> 日期</div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[100px]">
+                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
                           <div className="flex items-center"><Clock className="w-4 h-4 mr-1.5"/> 時間</div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
                           活動主題
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
+                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
                           <div className="flex items-center"><MapPin className="w-4 h-4 mr-1.5"/> 地點</div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
@@ -187,23 +121,36 @@ const App: React.FC = () => {
                       {events.map((event) => {
                          const hasLink = event.registerLink && event.registerLink !== '#' && event.registerLink.startsWith('http');
                          return (
-                          <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group">
+                          <tr key={event.id} className="hover:bg-blue-50/30 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">
                               {formatDateWithWeekday(event.date)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
                               {event.time}
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">
-                                {event.title}
+                            
+                            {/* Title with Hover Tooltip */}
+                            <td className="px-6 py-4 relative group">
+                              <div className="inline-flex items-center">
+                                <span className="text-sm font-bold text-gray-900 border-b border-dotted border-gray-400 cursor-help group-hover:text-primary transition-colors">
+                                  {event.title}
+                                </span>
                               </div>
+                              
+                              {/* Tooltip Content */}
                               {event.description && (
-                                <div className="text-xs text-gray-500 mt-1 line-clamp-1">
-                                  {event.description.replace(/\n/g, ' ')}
+                                <div className="absolute left-6 top-3/4 z-50 w-80 p-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-gray-200 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 pointer-events-none">
+                                  <div className="flex items-center text-secondary mb-2 border-b border-gray-100 pb-1">
+                                    <Info className="w-3 h-3 mr-1.5" />
+                                    <span className="text-xs font-bold uppercase">活動詳情</span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                                    {event.description}
+                                  </p>
                                 </div>
                               )}
                             </td>
+
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                               <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 truncate max-w-[120px]" title={event.location}>
                                 {event.location}
@@ -296,9 +243,6 @@ const App: React.FC = () => {
                </div>
             )}
           </div>
-        ) : (
-          user && <AdminPanel user={user} onLogout={handleLogout} />
-        )}
       </main>
 
       {/* Footer */}
@@ -311,49 +255,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
-
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 transform transition-all">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">管理員登入</h2>
-              <button onClick={() => setShowLogin(false)} className="text-gray-400 hover:text-gray-600">
-                <span className="text-2xl">&times;</span>
-              </button>
-            </div>
-            
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Gmail 信箱</label>
-                <input 
-                  type="email" 
-                  id="email"
-                  placeholder="name@gmail.com"
-                  className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 text-gray-900 px-3 py-2 shadow-sm focus:border-primary focus:ring-primary focus:bg-white outline-none transition-colors"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  required
-                />
-              </div>
-              
-              {loginError && (
-                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md flex items-start">
-                   <span className="mr-2">⚠️</span> {loginError}
-                </div>
-              )}
-
-              <p className="text-xs text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
-                <strong>演示模式:</strong> 請輸入 <code>nctuaa.tp@gmail.com</code> 以主要管理員身分登入。
-              </p>
-
-              <Button type="submit" className="w-full flex justify-center py-3">
-                驗證身分 <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

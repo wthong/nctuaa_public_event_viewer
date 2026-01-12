@@ -1,9 +1,8 @@
-import { AlumniEvent, AdminUser } from '../types';
-import { INITIAL_EVENTS, INITIAL_ADMINS, ROOT_ADMIN_EMAIL, ICS_URL } from '../constants';
+import { AlumniEvent } from '../types';
+import { INITIAL_EVENTS, ICS_URL } from '../constants';
 import ICAL from 'ical.js';
 
 const EVENTS_KEY = 'nctuaa_events';
-const ADMINS_KEY = 'nctuaa_admins';
 
 // --- Helpers ---
 
@@ -48,7 +47,8 @@ const fetchIcsContent = async (targetUrl: string): Promise<string> => {
 
 // --- Helper to convert ICAL event to our type ---
 const convertToAlumniEvent = (event: any, time: any): AlumniEvent => {
-    // time is an ICAL.Time object from the iterator
+    // event is ICAL.Event
+    // time is an ICAL.Time object from the iterator (Start Time)
     const jsDate = time.toJSDate();
     
     // Format Date: YYYY-MM-DD
@@ -57,12 +57,38 @@ const convertToAlumniEvent = (event: any, time: any): AlumniEvent => {
     const d = String(jsDate.getDate()).padStart(2, '0');
     const dateStr = `${y}-${m}-${d}`;
 
-    // Format Time: HH:mm or '全天'
+    // Format Time: HH:mm - HH:mm or '全天'
     let timeStr = '全天';
+    
     if (!time.isDate) { // isDate is true if it's a date-only (all day) value
-         const hours = String(jsDate.getHours()).padStart(2, '0');
-         const minutes = String(jsDate.getMinutes()).padStart(2, '0');
-         timeStr = `${hours}:${minutes}`;
+         const startStr = `${String(jsDate.getHours()).padStart(2, '0')}:${String(jsDate.getMinutes()).padStart(2, '0')}`;
+         let endStr = '';
+
+         try {
+             // Calculate End Time
+             // Most reliable way for both recurring and single events is using duration if available
+             if (event.duration) {
+                 // Clone the start time and add duration
+                 const endTime = time.clone();
+                 endTime.addDuration(event.duration);
+                 const endJsDate = endTime.toJSDate();
+                 
+                 // Only show end time if it ends on the same day (simplify display)
+                 if (endJsDate.getDate() === jsDate.getDate()) {
+                     endStr = `${String(endJsDate.getHours()).padStart(2, '0')}:${String(endJsDate.getMinutes()).padStart(2, '0')}`;
+                 }
+             } else if (event.endDate) {
+                 // Fallback to endDate property if duration is missing
+                 const endJsDate = event.endDate.toJSDate();
+                 if (endJsDate.getDate() === jsDate.getDate() && endJsDate > jsDate) {
+                     endStr = `${String(endJsDate.getHours()).padStart(2, '0')}:${String(endJsDate.getMinutes()).padStart(2, '0')}`;
+                 }
+             }
+         } catch (e) {
+             console.warn("Error calculating end time", e);
+         }
+
+         timeStr = endStr ? `${startStr} - ${endStr}` : startStr;
     }
 
     const summary = event.summary || '無標題';
@@ -107,8 +133,7 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
     
     // Define the window of interest
     const now = new Date();
-    // Normalize 'now' to start of day to ensure we include today's events even if they started earlier in the day?
-    // Actually, simple comparison is usually enough. Let's look back 1 day to be safe.
+    // Look back 1 day to be safe.
     const startWindow = new Date();
     startWindow.setDate(startWindow.getDate() - 1);
     
@@ -147,38 +172,16 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
         }
     });
 
-    // Merge with Local Overrides
-    // We prioritize local manual edits/adds, but we also want to keep the synced recurring events.
-    // Since syncing regenerates IDs based on date for recurring events, we simply re-sync completely
-    // and append manual *extra* events if any. 
+    // In view-only mode, we just treat ICS as source of truth.
+    // Manual events support is removed as per request to remove backend.
     
-    // Strategy: 
-    // 1. Get current local events.
-    // 2. Identify which are "Manually Created" (not from ICS).
-    //    We can identify ICS events by their ID format usually, or we just trust the sync to overwrite ICS events.
-    //    However, previously we used `ics_` prefix. Now we use `${uid}_${date}`.
-    //    Let's assume users only "Add" completely new events in Admin panel, 
-    //    or "Delete" events they don't want.
-    
-    //    For simplicity in this version: We fully replace the "Synced" portion.
-    //    But we need to preserve "Manually Added" events that are stored in localStorage.
-    
-    const currentLocalEvents = getEvents();
-    
-    // Basic Heuristic: If ID looks like a UUID or `evt_` (from AdminPanel), keep it. 
-    // If ID looks like `uid_date` or `ics_`, it's likely from sync (discard and replace).
-    // The previous code used `ics_` + random.
-    // AdminPanel uses `evt_` + timestamp.
-    
-    const manualEvents = currentLocalEvents.filter(e => e.id.startsWith('evt_'));
-    
-    const mergedEvents = [...calendarEvents, ...manualEvents];
+    const mergedEvents = [...calendarEvents];
     
     // Sort by Date
     mergedEvents.sort((a, b) => {
         const dateDiff = a.date.localeCompare(b.date);
         if (dateDiff !== 0) return dateDiff;
-        return a.time.localeCompare(b.time);
+        return a.time.localeCompare(b.time); // String compare works for HH:mm roughly
     });
 
     localStorage.setItem(EVENTS_KEY, JSON.stringify(mergedEvents));
@@ -198,56 +201,4 @@ export const getEvents = (): AlumniEvent[] => {
     return INITIAL_EVENTS;
   }
   return JSON.parse(stored);
-};
-
-export const saveEvent = (event: AlumniEvent) => {
-  const events = getEvents();
-  const index = events.findIndex(e => e.id === event.id);
-  if (index >= 0) {
-    events[index] = event;
-  } else {
-    events.push(event);
-  }
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
-  return events;
-};
-
-export const deleteEvent = (id: string) => {
-  const events = getEvents();
-  const newEvents = events.filter(e => e.id !== id);
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(newEvents));
-  return newEvents;
-};
-
-// Admins
-export const getAdmins = (): AdminUser[] => {
-  const stored = localStorage.getItem(ADMINS_KEY);
-  if (!stored) {
-    localStorage.setItem(ADMINS_KEY, JSON.stringify(INITIAL_ADMINS));
-    return INITIAL_ADMINS;
-  }
-  return JSON.parse(stored);
-};
-
-export const addAdmin = (email: string, addedBy: string): AdminUser[] => {
-  const admins = getAdmins();
-  if (admins.find(a => a.email === email)) return admins;
-  
-  const newAdmins = [...admins, { email, addedBy, dateAdded: Date.now() }];
-  localStorage.setItem(ADMINS_KEY, JSON.stringify(newAdmins));
-  return newAdmins;
-};
-
-export const removeAdmin = (email: string): AdminUser[] => {
-  if (email === ROOT_ADMIN_EMAIL) throw new Error("無法刪除主要管理員");
-  
-  const admins = getAdmins();
-  const newAdmins = admins.filter(a => a.email !== email);
-  localStorage.setItem(ADMINS_KEY, JSON.stringify(newAdmins));
-  return newAdmins;
-};
-
-export const isAdmin = (email: string): boolean => {
-  const admins = getAdmins();
-  return admins.some(a => a.email.toLowerCase() === email.toLowerCase());
 };
