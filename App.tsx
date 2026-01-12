@@ -6,6 +6,10 @@ import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar,
 const App: React.FC = () => {
   const [events, setEvents] = useState<AlumniEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [logoError, setLogoError] = useState(false);
+
+  // Fallback Logo (SVG Data URI) - 在 /logo.png 讀取失敗時顯示
+  const fallbackLogo = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='white'/%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23B38F00' stroke-width='2'/%3E%3Ctext x='50' y='70' font-family='sans-serif' font-weight='bold' font-size='50' fill='%23003366' text-anchor='middle'%3E%E4%BA%A4%E5%A4%A7%3C/text%3E%3C/svg%3E`;
 
   // Fetch and Sync events
   useEffect(() => {
@@ -56,11 +60,13 @@ const App: React.FC = () => {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
                {/* 
-                 請確保 'logo.png' 已放置於專案根目錄下的 'public' 資料夾中。
-                 Vite 會自動將 '/logo.png' 對應到 public/logo.png
+                 Logo 邏輯：
+                 1. 優先嘗試顯示 '/logo.png'
+                 2. 如果 onError 觸發 (找不到檔案)，則切換顯示 fallbackLogo (SVG)
                */}
                <img 
-                 src="/logo.png"
+                 src={logoError ? fallbackLogo : "/logo.png"}
+                 onError={() => setLogoError(true)}
                  alt="交通大學台北校友會 Logo" 
                  className="h-10 w-10 mr-3 bg-white rounded-full p-0.5 shadow-sm object-contain"
                />
