@@ -1,0 +1,361 @@
+import React, { useState, useEffect } from 'react';
+import { AdminPanel } from './components/AdminPanel';
+import { Button } from './components/Button';
+import { getEvents, isAdmin, syncEventsFromSheet } from './services/storageService';
+import { User, AlumniEvent } from './types';
+import { ROOT_ADMIN_EMAIL } from './constants';
+import { LogIn, GraduationCap, ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, ExternalLink, Calendar } from 'lucide-react';
+
+const App: React.FC = () => {
+  const [view, setView] = useState<'public' | 'admin'>('public');
+  const [events, setEvents] = useState<AlumniEvent[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Login Modal State
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Fetch and Sync events
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      try {
+        await syncEventsFromSheet(); 
+      } catch (e) {
+        console.error("Initialization error:", e);
+      } finally {
+        setEvents(getEvents());
+        setIsLoading(false);
+      }
+    };
+
+    if (view === 'public') {
+      init();
+    }
+  }, [view]);
+
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      await syncEventsFromSheet();
+      setEvents(getEvents());
+    } catch (e) {
+      console.error("Refresh error:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail.endsWith('@gmail.com')) {
+      setLoginError('請使用有效的 Gmail 信箱。');
+      return;
+    }
+
+    if (isAdmin(loginEmail)) {
+      const newUser: User = {
+        email: loginEmail,
+        isAdmin: true,
+        isRoot: loginEmail === ROOT_ADMIN_EMAIL,
+      };
+      setUser(newUser);
+      setView('admin');
+      setShowLogin(false);
+      setLoginEmail('');
+      setLoginError('');
+    } else {
+      setLoginError('存取被拒。此 Email 不是授權的管理員。');
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setView('public');
+  };
+
+  // Helper to format date with weekday
+  const formatDateWithWeekday = (dateStr: string) => {
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return dateStr;
+    const weekday = dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
+    return (
+      <span>
+        {dateStr} <span className="text-gray-400 text-sm ml-1">({weekday})</span>
+      </span>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+      {/* Navbar */}
+      <nav className="bg-primary text-white shadow-lg sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center cursor-pointer" onClick={() => setView('public')}>
+               <div className="bg-white p-1.5 rounded-full mr-3 shadow-inner">
+                 <GraduationCap className="h-6 w-6 text-primary" />
+               </div>
+               <span className="text-xl font-bold tracking-tight">交通大學台北校友會</span>
+            </div>
+            <div>
+              {user ? (
+                <div className="flex items-center gap-4">
+                  <span className="hidden md:inline text-sm text-gray-300">管理員: {user.email}</span>
+                  {view === 'public' && (
+                     <Button variant="secondary" onClick={() => setView('admin')} className="text-sm py-1">
+                       進入後台
+                     </Button>
+                  )}
+                  {view === 'admin' && (
+                     <Button variant="ghost" onClick={() => setView('public')} className="text-sm py-1 text-white hover:bg-white/10 hover:text-white">
+                       返回首頁
+                     </Button>
+                  )}
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowLogin(true)}
+                  className="flex items-center text-gray-300 hover:text-white transition-colors"
+                >
+                  <LogIn className="w-5 h-5 mr-1" />
+                  <span className="hidden sm:inline">管理員登入</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-grow">
+        {view === 'public' ? (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            
+            {/* Hero Section */}
+            <div className="text-center mb-10 space-y-4">
+              <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl tracking-tight">
+                近期活動 <span className="text-secondary"><a href="https://calendar.google.com/calendar/embed?src=4d2df36446bbb6be7a4ab1a774e82f2c963325f325743b716fb9429ba39c2961%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank">一覽表</a></span>
+              </h1>
+              
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-all"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? '同步中...' : '更新活動資訊'}
+                </button>
+              </div>
+            </div>
+
+            {/* Event Content */}
+            {isLoading && events.length === 0 ? (
+               <div className="flex flex-col items-center justify-center py-20">
+                 <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+                 <p className="text-gray-500">正在同步日曆資料...</p>
+               </div>
+            ) : (
+              <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+                
+                {/* --- Desktop View: Table (Hidden on Mobile) --- */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[160px]">
+                          <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5"/> 日期</div>
+                        </th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[100px]">
+                          <div className="flex items-center"><Clock className="w-4 h-4 mr-1.5"/> 時間</div>
+                        </th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          活動主題
+                        </th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
+                          <div className="flex items-center"><MapPin className="w-4 h-4 mr-1.5"/> 地點</div>
+                        </th>
+                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
+                          報名
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {events.map((event) => {
+                         const hasLink = event.registerLink && event.registerLink !== '#' && event.registerLink.startsWith('http');
+                         return (
+                          <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">
+                              {formatDateWithWeekday(event.date)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
+                              {event.time}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">
+                                {event.title}
+                              </div>
+                              {event.description && (
+                                <div className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                  {event.description.replace(/\n/g, ' ')}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 truncate max-w-[120px]" title={event.location}>
+                                {event.location}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                              {hasLink ? (
+                                <a 
+                                  href={event.registerLink} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-bold rounded-full text-white bg-secondary hover:bg-yellow-600 transition-colors shadow-sm w-full"
+                                >
+                                  立即報名
+                                </a>
+                              ) : (
+                                <span className="text-gray-300 text-xs">暫無連結</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* --- Mobile View: List (Visible only on Mobile) --- */}
+                <div className="md:hidden divide-y divide-gray-200">
+                   {events.map((event) => {
+                     const hasLink = event.registerLink && event.registerLink !== '#' && event.registerLink.startsWith('http');
+                     return (
+                       <div key={event.id} className="p-5 flex flex-col gap-3 hover:bg-gray-50 transition-colors">
+                         {/* Header: Date & Time */}
+                         <div className="flex justify-between items-center">
+                            <div className="flex items-center text-primary font-semibold text-sm bg-blue-50 px-2 py-1 rounded">
+                              <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                              {formatDateWithWeekday(event.date)}
+                            </div>
+                            <div className="flex items-center text-gray-500 text-xs font-medium">
+                              <Clock className="w-3.5 h-3.5 mr-1" />
+                              {event.time}
+                            </div>
+                         </div>
+
+                         {/* Body: Title */}
+                         <div>
+                           <h3 className="text-lg font-bold text-gray-900 leading-snug">{event.title}</h3>
+                           {event.description && (
+                             <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                               {event.description.replace(/\n/g, ' ')}
+                             </p>
+                           )}
+                         </div>
+
+                         {/* Footer: Location & Action */}
+                         <div className="flex items-end justify-between pt-2 border-t border-gray-100 mt-1">
+                           <div className="flex items-center text-sm text-gray-600 flex-1 min-w-0 mr-4">
+                             <MapPin className="w-4 h-4 mr-1.5 flex-shrink-0 text-secondary" />
+                             <span className="truncate">{event.location}</span>
+                           </div>
+                           
+                           <div className="flex-shrink-0">
+                             {hasLink ? (
+                               <a 
+                                  href={event.registerLink} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-xs font-bold rounded-full text-white bg-secondary hover:bg-yellow-600 transition-colors shadow-sm"
+                                >
+                                  立即報名 <ArrowRight className="w-3 h-3 ml-1" />
+                                </a>
+                             ) : (
+                               <span className="text-xs text-gray-300 font-medium py-2 inline-block">無報名連結</span>
+                             )}
+                           </div>
+                         </div>
+                       </div>
+                     );
+                   })}
+                </div>
+
+              </div>
+            )}
+
+            {!isLoading && events.length === 0 && (
+               <div className="text-center py-24 bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
+                 <CalendarCheck className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+                 <h3 className="text-lg font-medium text-gray-900">目前暫無活動</h3>
+                 <p className="text-gray-400 mt-2">請稍後再回來查看最新的活動安排。</p>
+               </div>
+            )}
+          </div>
+        ) : (
+          user && <AdminPanel user={user} onLogout={handleLogout} />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} 交通大學台北校友會. All rights reserved.</p>
+          <div className="flex space-x-6 mt-4 md:mt-0 text-sm text-gray-500">
+            <a href="#" className="hover:text-primary">聯絡我們</a>
+            <a href="#" className="hover:text-primary">隱私權政策</a>
+          </div>
+        </div>
+      </footer>
+
+      {/* Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 transform transition-all">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">管理員登入</h2>
+              <button onClick={() => setShowLogin(false)} className="text-gray-400 hover:text-gray-600">
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+            
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Gmail 信箱</label>
+                <input 
+                  type="email" 
+                  id="email"
+                  placeholder="name@gmail.com"
+                  className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 text-gray-900 px-3 py-2 shadow-sm focus:border-primary focus:ring-primary focus:bg-white outline-none transition-colors"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              {loginError && (
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md flex items-start">
+                   <span className="mr-2">⚠️</span> {loginError}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
+                <strong>演示模式:</strong> 請輸入 <code>nctuaa.tp@gmail.com</code> 以主要管理員身分登入。
+              </p>
+
+              <Button type="submit" className="w-full flex justify-center py-3">
+                驗證身分 <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/en/thumb/8/84/National_Chiao_Tung_University_logo.svg/1200px-National_Chiao_Tung_University_logo.svg.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>交通大學台北校友會</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#003366', // Deep Blue
+              secondary: '#B38F00', // Gold/Bronze
+              accent: '#f3f4f6',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* 強制表單元件使用淺色主題，避免在深色模式系統下圖示(如日曆)變成白色而看不見 */
+      input, textarea, select {
+        color-scheme: light;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "ical.js": "https://esm.sh/ical.js@1.5.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-50 text-gray-800 antialiased">
+    <div id="root"></div>
+  </body>
+</html>
