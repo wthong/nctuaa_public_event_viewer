@@ -14,25 +14,39 @@ const extractUrl = (text: string): string => {
 
 // --- Proxy Fetch Helper ---
 const fetchIcsContent = async (targetUrl: string): Promise<string> => {
-    // Normalize URL
-    let url = targetUrl;
-    try {
-        url = decodeURIComponent(targetUrl);
-    } catch (e) {
-        // ignore
-    }
+    // 1. Browser Cache Busting: Add explicit cache control headers to fetch
+    // 2. Proxy/Server Cache Busting: Append a random timestamp to the target URL.
+    //    This forces the proxy to fetch a "new" URL from Google, and Google to serve a fresh request (hopefully).
+    
+    const cacheBuster = `t=${Date.now()}`;
+    const urlWithCacheBuster = targetUrl.includes('?') 
+        ? `${targetUrl}&${cacheBuster}` 
+        : `${targetUrl}?${cacheBuster}`;
+
+    let urlToEncode = urlWithCacheBuster;
 
     // List of CORS proxies to try
     const proxies = [
+        // Corsproxy.io
         (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+        // AllOrigins
         (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
     ];
 
     let lastError;
     for (const createProxyUrl of proxies) {
         try {
-            const proxyUrl = createProxyUrl(url);
-            const response = await fetch(proxyUrl);
+            const proxyUrl = createProxyUrl(urlToEncode);
+            
+            // Add 'cache: no-store' to ensure the browser doesn't return a cached proxy response
+            const response = await fetch(proxyUrl, {
+                cache: 'no-store',
+                headers: {
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
             if (response.ok) {
                 return await response.text();
             }
@@ -138,7 +152,7 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
     startWindow.setDate(startWindow.getDate() - 1);
     
     const endWindow = new Date();
-    endWindow.setFullYear(endWindow.getFullYear() + 1); // Look ahead 1 year
+    endWindow.setMonth(endWindow.getMonth() + 6); // Look ahead 6 months only
 
     vevents.forEach(vevent => {
         try {
@@ -189,6 +203,9 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
 
   } catch (error) {
     console.error("Error syncing ICS:", error);
+    // If sync fails, do NOT fallback to stale data silently if this was an explicit sync request,
+    // but current logic returns whatever is there.
+    // We stick to returning stored data if net fails to avoid white screen.
     return getEvents();
   }
 };
