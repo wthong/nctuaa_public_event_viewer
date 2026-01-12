@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getEvents, syncEventsFromSheet } from './services/storageService';
 import { AlumniEvent } from './types';
-import { GraduationCap, ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info } from 'lucide-react';
+import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   const [events, setEvents] = useState<AlumniEvent[]>([]);
@@ -55,9 +55,11 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-               <div className="bg-white p-1.5 rounded-full mr-3 shadow-inner">
-                 <GraduationCap className="h-6 w-6 text-primary" />
-               </div>
+               <img 
+                 src="https://lh3.googleusercontent.com/sitesv/AAzXCkfrieuC77kKxa5mJWWYnvfaSAFBW8ScghsQ2kHaM8Yduw5-bn-q8oZ_oJQRbITyKgL2QM24pcgGV5a9gw1SVxJJolLWZP-UEFe7BDdxJBbMGYkt_AfS9IpMWZ3Q2bZ14DeUwtKRRm5qaG0Q-MiUoXt3R02an4f2--ZggQTQJ3KMMxovF3lsfIjC=w16383" 
+                 alt="交通大學台北校友會 Logo" 
+                 className="h-10 w-10 mr-3 bg-white rounded-full p-0.5 shadow-sm object-contain"
+               />
                <span className="text-xl font-bold tracking-tight">交通大學台北校友會</span>
             </div>
           </div>
