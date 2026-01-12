@@ -55,8 +55,12 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
+               {/* 
+                 請確保 'logo.png' 已放置於專案根目錄下的 'public' 資料夾中。
+                 Vite 會自動將 '/logo.png' 對應到 public/logo.png
+               */}
                <img 
-                 src="https://lh3.googleusercontent.com/sitesv/AAzXCkfrieuC77kKxa5mJWWYnvfaSAFBW8ScghsQ2kHaM8Yduw5-bn-q8oZ_oJQRbITyKgL2QM24pcgGV5a9gw1SVxJJolLWZP-UEFe7BDdxJBbMGYkt_AfS9IpMWZ3Q2bZ14DeUwtKRRm5qaG0Q-MiUoXt3R02an4f2--ZggQTQJ3KMMxovF3lsfIjC=w16383" 
+                 src="/logo.png"
                  alt="交通大學台北校友會 Logo" 
                  className="h-10 w-10 mr-3 bg-white rounded-full p-0.5 shadow-sm object-contain"
                />
@@ -73,7 +77,7 @@ const App: React.FC = () => {
             {/* Hero Section */}
             <div className="text-center mb-10 space-y-4">
               <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl tracking-tight">
-                近期活動 <span className="text-secondary"><a href="https://calendar.google.com/calendar/embed?src=4d2df36446bbb6be7a4ab1a774e82f2c963325f325743b716fb9429ba39c2961%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank">一覽表</a></span>
+                近期活動 <span className="text-secondary hover:text-yellow-600 transition-colors"><a href="https://calendar.google.com/calendar/embed?src=4d2df36446bbb6be7a4ab1a774e82f2c963325f325743b716fb9429ba39c2961%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank" className="underline decoration-2 decoration-secondary/50 hover:decoration-secondary">一覽表</a></span>
               </h1>
               
               <div className="flex justify-center pt-2">
@@ -108,7 +112,7 @@ const App: React.FC = () => {
                         <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
                           <div className="flex items-center"><Clock className="w-4 h-4 mr-1.5"/> 時間</div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[200px]">
                           活動主題
                         </th>
                         <th scope="col" className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap w-[140px]">
