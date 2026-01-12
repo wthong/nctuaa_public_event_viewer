@@ -4,7 +4,7 @@ export const generateEventDescription = async (title: string, location: string, 
   // Graceful fallback if no API key is present in environment
   if (!process.env.API_KEY) {
     console.warn("No API_KEY found in environment variables.");
-    return "請設定 API_KEY 以使用 AI 生成功能。(模擬 AI 回應：歡迎參加這個精彩的活動！)";
+    return "歡迎參加這個精彩的校友活動！";
   }
 
   try {
