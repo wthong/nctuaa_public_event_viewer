@@ -70,7 +70,7 @@ const App: React.FC = () => {
                  alt="交通大學台北校友會 Logo" 
                  className="h-10 w-10 mr-3 bg-white rounded-full p-0.5 shadow-sm object-contain"
                />
-               <span className="text-xl font-bold tracking-tight">交通大學台北校友會</span>
+               <span className="text-xl font-bold tracking-tight"><a href="https://taipei.nctuaa.org/">交通大學台北校友會</a></span>
             </div>
           </div>
         </div>
