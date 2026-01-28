@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getEvents, syncEventsFromSheet } from './services/storageService';
 import { AlumniEvent } from './types';
-import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info } from 'lucide-react';
+import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info, ExternalLink, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [events, setEvents] = useState<AlumniEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [logoError, setLogoError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [isInLineBrowser, setIsInLineBrowser] = useState(false);
 
   // Fallback Logo (SVG Data URI) - 在 /logo.png 讀取失敗時顯示
   const fallbackLogo = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='white'/%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23B38F00' stroke-width='2'/%3E%3Ctext x='50' y='70' font-family='sans-serif' font-weight='bold' font-size='50' fill='%23003366' text-anchor='middle'%3E%E4%BA%A4%E5%A4%A7%3C/text%3E%3C/svg%3E`;
@@ -26,6 +27,27 @@ const App: React.FC = () => {
       }));
     }
   };
+
+  // Detect LINE Browser and handle logic
+  useEffect(() => {
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isLine = /Line/i.test(ua);
+
+    if (isLine) {
+      const url = new URL(window.location.href);
+      const hasParam = url.searchParams.get('openExternalBrowser');
+
+      if (!hasParam) {
+        // 1. Attempt to auto-jump out of LINE
+        url.searchParams.append('openExternalBrowser', '1');
+        window.location.replace(url.toString());
+      } else {
+        // 2. If we are still here despite the param, auto-jump failed.
+        // Show manual instruction overlay.
+        setIsInLineBrowser(true);
+      }
+    }
+  }, []);
 
   // Fetch and Sync events
   useEffect(() => {
@@ -73,7 +95,33 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative">
+      
+      {/* LINE Browser Warning Overlay */}
+      {isInLineBrowser && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in duration-300">
+          <div className="absolute top-4 right-4 animate-bounce">
+            <ArrowRight className="w-12 h-12 text-secondary rotate-[-45deg]" />
+          </div>
+          
+          <div className="bg-white/10 p-6 rounded-2xl border border-white/20 max-w-sm backdrop-blur-md shadow-2xl">
+            <ExternalLink className="w-16 h-16 text-secondary mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-3">請使用預設瀏覽器開啟</h2>
+            <p className="text-gray-200 mb-6 text-sm leading-relaxed">
+              為了確保功能正常（如日曆同步與報名），<br/>
+              請點擊右上角選單 <span className="inline-block bg-white/20 rounded px-1">⋮</span> 或 <span className="inline-block bg-white/20 rounded px-1">≡</span><br/>
+              選擇「以其他瀏覽器開啟」
+            </p>
+            <button 
+              onClick={() => setIsInLineBrowser(false)}
+              className="text-sm text-gray-400 hover:text-white underline decoration-dotted"
+            >
+              我知道了，繼續使用 (可能會有異常)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <nav className="bg-primary text-white shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -283,10 +331,12 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} 交通大學台北校友會. All rights reserved.</p>
+          <div className="text-center md:text-left">
+            <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} 交通大學台北校友會. All rights reserved.</p>
+            <p className="text-gray-400 text-xs mt-1">Maintain by 洪偉騰(Henry)</p>
+          </div>
           <div className="flex space-x-6 mt-4 md:mt-0 text-sm text-gray-500">
-            <a href="#" className="hover:text-primary">聯絡我們</a>
-            <a href="#" className="hover:text-primary">隱私權政策</a>
+            <a href="mailto:nctu.aa.tp@gmail.com" className="hover:text-primary transition-colors">聯絡我們</a>
           </div>
         </div>
       </footer>
