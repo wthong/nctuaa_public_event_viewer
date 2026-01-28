@@ -7,9 +7,25 @@ const App: React.FC = () => {
   const [events, setEvents] = useState<AlumniEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [logoError, setLogoError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
   // Fallback Logo (SVG Data URI) - 在 /logo.png 讀取失敗時顯示
   const fallbackLogo = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='white'/%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23B38F00' stroke-width='2'/%3E%3Ctext x='50' y='70' font-family='sans-serif' font-weight='bold' font-size='50' fill='%23003366' text-anchor='middle'%3E%E4%BA%A4%E5%A4%A7%3C/text%3E%3C/svg%3E`;
+
+  const updateLastSyncTime = () => {
+    const timestamp = localStorage.getItem('nctuaa_last_sync');
+    if (timestamp) {
+      const date = new Date(parseInt(timestamp, 10));
+      setLastUpdated(date.toLocaleString('zh-TW', {
+        hour12: false,
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }));
+    }
+  };
 
   // Fetch and Sync events
   useEffect(() => {
@@ -22,6 +38,7 @@ const App: React.FC = () => {
         console.error("Initialization error:", e);
       } finally {
         setEvents(getEvents());
+        updateLastSyncTime();
         setIsLoading(false);
       }
     };
@@ -35,6 +52,7 @@ const App: React.FC = () => {
       // Force sync on button click: ignores 10 min cache
       await syncEventsFromSheet(true);
       setEvents(getEvents());
+      updateLastSyncTime();
     } catch (e) {
       console.error("Refresh error:", e);
     } finally {
@@ -88,15 +106,18 @@ const App: React.FC = () => {
                 近期活動 <span className="text-secondary hover:text-yellow-600 transition-colors"><a href="https://calendar.google.com/calendar/embed?src=4d2df36446bbb6be7a4ab1a774e82f2c963325f325743b716fb9429ba39c2961%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank" className="underline decoration-2 decoration-secondary/50 hover:decoration-secondary">一覽表</a></span>
               </h1>
               
-              <div className="flex justify-center pt-2">
+              <div className="flex flex-col items-center gap-3 pt-2">
                 <button
                   onClick={handleRefresh}
                   disabled={isLoading}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-all"
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  {isLoading ? '同步中...' : '強制更新'}
+                  {isLoading ? '同步中...' : '更新'}
                 </button>
+                <span className="text-xs text-gray-500 font-medium">
+                  每10分鐘更新一次，上次更新時間：{lastUpdated || '尚未更新'}
+                </span>
               </div>
             </div>
 
