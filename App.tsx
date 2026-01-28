@@ -16,7 +16,8 @@ const App: React.FC = () => {
     const init = async () => {
       setIsLoading(true);
       try {
-        await syncEventsFromSheet(); 
+        // Soft sync on load: checks if < 10 mins ago, if so, uses cache
+        await syncEventsFromSheet(false); 
       } catch (e) {
         console.error("Initialization error:", e);
       } finally {
@@ -31,7 +32,8 @@ const App: React.FC = () => {
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      await syncEventsFromSheet();
+      // Force sync on button click: ignores 10 min cache
+      await syncEventsFromSheet(true);
       setEvents(getEvents());
     } catch (e) {
       console.error("Refresh error:", e);
@@ -93,7 +95,7 @@ const App: React.FC = () => {
                   className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-all"
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  {isLoading ? '同步中...' : '更新活動資訊'}
+                  {isLoading ? '同步中...' : '強制更新'}
                 </button>
               </div>
             </div>

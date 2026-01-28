@@ -3,6 +3,8 @@ import { INITIAL_EVENTS, ICS_URL } from '../constants';
 import ICAL from 'ical.js';
 
 const EVENTS_KEY = 'nctuaa_events';
+const LAST_SYNC_KEY = 'nctuaa_last_sync';
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 // --- Helpers ---
 
@@ -14,49 +16,57 @@ const extractUrl = (text: string): string => {
 
 // --- Proxy Fetch Helper ---
 const fetchIcsContent = async (targetUrl: string): Promise<string> => {
-    // 1. Browser Cache Busting: Add explicit cache control headers to fetch
-    // 2. Proxy/Server Cache Busting: Append a random timestamp to the target URL.
-    //    This forces the proxy to fetch a "new" URL from Google, and Google to serve a fresh request (hopefully).
-    
+    // 1. First, try our own Vercel API Route (which handles caching server-side).
+    //    We append a timestamp only if we really need to bypass browser cache, 
+    //    but let's rely on the API's Cache-Control headers generally.
+    try {
+        // Use a relative path so it works on the deployed domain
+        const apiResponse = await fetch('/api/calendar');
+        if (apiResponse.ok) {
+            const text = await apiResponse.text();
+            if (text.includes("BEGIN:VCALENDAR")) {
+                return text;
+            }
+        }
+    } catch (e) {
+        console.warn("Vercel API fetch failed, falling back to CORS proxies.", e);
+    }
+
+    // 2. Fallback: If API fails (e.g. local dev without api), use CORS proxies
     const cacheBuster = `t=${Date.now()}`;
     const urlWithCacheBuster = targetUrl.includes('?') 
         ? `${targetUrl}&${cacheBuster}` 
         : `${targetUrl}?${cacheBuster}`;
 
-    let urlToEncode = urlWithCacheBuster;
-
-    // List of CORS proxies to try
+    // List of CORS proxies to try in order of reliability/preference
     const proxies = [
-        // Corsproxy.io
-        (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
         // AllOrigins
         (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        // CodeTabs
+        (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+        // Corsproxy.io
+        (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
     ];
 
     let lastError;
     for (const createProxyUrl of proxies) {
         try {
-            const proxyUrl = createProxyUrl(urlToEncode);
-            
-            // Add 'cache: no-store' to ensure the browser doesn't return a cached proxy response
-            const response = await fetch(proxyUrl, {
-                cache: 'no-store',
-                headers: {
-                    'Pragma': 'no-cache',
-                    'Cache-Control': 'no-cache'
-                }
-            });
+            const proxyUrl = createProxyUrl(urlWithCacheBuster);
+            const response = await fetch(proxyUrl);
             
             if (response.ok) {
-                return await response.text();
+                const text = await response.text();
+                if (text.includes("BEGIN:VCALENDAR")) {
+                    return text;
+                }
+            } else {
+                lastError = new Error(`Status ${response.status}`);
             }
-            lastError = new Error(`Status ${response.status}`);
         } catch (error) {
             lastError = error;
-            console.warn("Proxy attempt failed:", error);
         }
     }
-    throw lastError || new Error("All proxies failed");
+    throw lastError || new Error("All proxies failed to fetch valid ICS data");
 };
 
 // --- Helper to convert ICAL event to our type ---
@@ -74,25 +84,20 @@ const convertToAlumniEvent = (event: any, time: any): AlumniEvent => {
     // Format Time: HH:mm - HH:mm or '全天'
     let timeStr = '全天';
     
-    if (!time.isDate) { // isDate is true if it's a date-only (all day) value
+    if (!time.isDate) { 
          const startStr = `${String(jsDate.getHours()).padStart(2, '0')}:${String(jsDate.getMinutes()).padStart(2, '0')}`;
          let endStr = '';
 
          try {
-             // Calculate End Time
-             // Most reliable way for both recurring and single events is using duration if available
              if (event.duration) {
-                 // Clone the start time and add duration
                  const endTime = time.clone();
                  endTime.addDuration(event.duration);
                  const endJsDate = endTime.toJSDate();
                  
-                 // Only show end time if it ends on the same day (simplify display)
                  if (endJsDate.getDate() === jsDate.getDate()) {
                      endStr = `${String(endJsDate.getHours()).padStart(2, '0')}:${String(endJsDate.getMinutes()).padStart(2, '0')}`;
                  }
              } else if (event.endDate) {
-                 // Fallback to endDate property if duration is missing
                  const endJsDate = event.endDate.toJSDate();
                  if (endJsDate.getDate() === jsDate.getDate() && endJsDate > jsDate) {
                      endStr = `${String(endJsDate.getHours()).padStart(2, '0')}:${String(endJsDate.getMinutes()).padStart(2, '0')}`;
@@ -109,14 +114,11 @@ const convertToAlumniEvent = (event: any, time: any): AlumniEvent => {
     const location = event.location || '待定';
     const description = event.description || '';
     
-    // Extract Link
     let link = extractUrl(description);
-    // Try to get URL property directly if not found in description
     if (link === '#' && event.component && event.component.getFirstPropertyValue('url')) {
         link = event.component.getFirstPropertyValue('url');
     }
 
-    // Create a unique ID for this instance: Original UID + Date
     const uniqueId = `${event.uid}_${dateStr}`;
 
     return {
@@ -134,7 +136,20 @@ const convertToAlumniEvent = (event: any, time: any): AlumniEvent => {
 
 // --- Main Sync Logic ---
 
-export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
+export const syncEventsFromSheet = async (force: boolean = false): Promise<AlumniEvent[]> => {
+  // 1. Check Client-Side Cache Cooldown
+  // If not forced, and last sync was less than 10 mins ago, return stored data immediately.
+  if (!force) {
+    const lastSyncStr = localStorage.getItem(LAST_SYNC_KEY);
+    const lastSyncTime = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
+    const now = Date.now();
+
+    if (now - lastSyncTime < CACHE_DURATION) {
+      console.log("Using local cache (synced < 10 mins ago)");
+      return getEvents();
+    }
+  }
+
   try {
     const icsData = await fetchIcsContent(ICS_URL);
     
@@ -145,38 +160,27 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
     
     const calendarEvents: AlumniEvent[] = [];
     
-    // Define the window of interest
-    const now = new Date();
-    // Look back 1 day to be safe.
     const startWindow = new Date();
     startWindow.setDate(startWindow.getDate() - 1);
     
     const endWindow = new Date();
-    endWindow.setMonth(endWindow.getMonth() + 6); // Look ahead 6 months only
+    endWindow.setMonth(endWindow.getMonth() + 6); 
 
     vevents.forEach(vevent => {
         try {
             const event = new ICAL.Event(vevent);
-            
-            // Check if it's an expanded recurring event or a single event
             if (event.isRecurring()) {
                 const iterator = event.iterator();
                 let next;
-                
-                // Iterate through occurrences
                 while ((next = iterator.next())) {
                     const nextJsDate = next.toJSDate();
-                    
                     if (nextJsDate < startWindow) continue;
                     if (nextJsDate > endWindow) break;
-                    
                     calendarEvents.push(convertToAlumniEvent(event, next));
                 }
             } else {
-                // Single event
                 const startTime = event.startDate;
                 const startJsDate = startTime.toJSDate();
-                
                 if (startJsDate >= startWindow && startJsDate <= endWindow) {
                     calendarEvents.push(convertToAlumniEvent(event, startTime));
                 }
@@ -186,26 +190,21 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
         }
     });
 
-    // In view-only mode, we just treat ICS as source of truth.
-    // Manual events support is removed as per request to remove backend.
-    
     const mergedEvents = [...calendarEvents];
     
-    // Sort by Date
     mergedEvents.sort((a, b) => {
         const dateDiff = a.date.localeCompare(b.date);
         if (dateDiff !== 0) return dateDiff;
-        return a.time.localeCompare(b.time); // String compare works for HH:mm roughly
+        return a.time.localeCompare(b.time); 
     });
 
     localStorage.setItem(EVENTS_KEY, JSON.stringify(mergedEvents));
+    localStorage.setItem(LAST_SYNC_KEY, Date.now().toString()); // Update sync time
+    
     return mergedEvents;
 
   } catch (error) {
     console.error("Error syncing ICS:", error);
-    // If sync fails, do NOT fallback to stale data silently if this was an explicit sync request,
-    // but current logic returns whatever is there.
-    // We stick to returning stored data if net fails to avoid white screen.
     return getEvents();
   }
 };
@@ -214,6 +213,8 @@ export const syncEventsFromSheet = async (): Promise<AlumniEvent[]> => {
 export const getEvents = (): AlumniEvent[] => {
   const stored = localStorage.getItem(EVENTS_KEY);
   if (!stored) {
+    // If no events but we have defaults, set them.
+    // However, for this app, we prefer empty until loaded or default empty array.
     localStorage.setItem(EVENTS_KEY, JSON.stringify(INITIAL_EVENTS));
     return INITIAL_EVENTS;
   }
