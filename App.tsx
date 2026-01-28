@@ -332,8 +332,7 @@ const App: React.FC = () => {
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
           <div className="text-center md:text-left">
-            <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} 交通大學台北校友會. All rights reserved.</p>
-            <p className="text-gray-400 text-xs mt-1">Maintain by 洪偉騰(Henry)</p>
+            <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} 交通大學台北校友會. All rights reserved. Maintain by 洪偉騰(Henry)</p>
           </div>
           <div className="flex space-x-6 mt-4 md:mt-0 text-sm text-gray-500">
             <a href="mailto:nctu.aa.tp@gmail.com" className="hover:text-primary transition-colors">聯絡我們</a>
