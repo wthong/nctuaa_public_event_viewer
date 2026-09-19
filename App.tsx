@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getEvents, syncEventsFromSheet } from './services/storageService';
 import { AlumniEvent } from './types';
-import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info, ExternalLink, X } from 'lucide-react';
+import { ArrowRight, Loader2, CalendarCheck, RefreshCw, MapPin, Clock, Calendar, Info, ExternalLink, X, Bell } from 'lucide-react';
 
 const App: React.FC = () => {
   const [events, setEvents] = useState<AlumniEvent[]>([]);
@@ -140,6 +140,16 @@ const App: React.FC = () => {
                />
                <span className="text-xl font-bold tracking-tight"><a href="https://taipei.nctuaa.org/">台北校友會</a></span>
             </div>
+            <a
+              href="https://taipei.nctuaa.org/registeration"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-3 sm:px-4 py-2 rounded-full bg-secondary hover:bg-yellow-600 text-white text-xs sm:text-sm font-bold shadow-sm transition-colors whitespace-nowrap"
+            >
+              <Bell className="w-4 h-4 mr-1.5" />
+              <span className="hidden sm:inline">校友登記，接收新活動通知</span>
+              <span className="sm:hidden">登記收通知</span>
+            </a>
           </div>
         </div>
       </nav>
